@@ -19,6 +19,7 @@ function Login() {
       const result = await signInWithPopup(auth, googleProvider);
 
       console.log("Google login successful:", result.user);
+      <h1>eszrdtxgjbrzfjgjjzdxcv</h1>
 
       setLoading(false); 
     } catch (error) {

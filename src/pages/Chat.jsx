@@ -9,6 +9,10 @@ const [success, setSuccess] = useState("");
 const loadMessages = () => {
 const savedMessages =
 JSON.parse(localStorage.getItem("churchMessages")) || [];
+<<<<<<< HEAD
+=======
+
+>>>>>>> 49776bdd37be26ff71f38f5cef997f5b3c554a80
 const currentUserName =
   localStorage.getItem("currentUserName") || "";
 

@@ -39,6 +39,10 @@ pointerEvents: "none",
 }}
 ></div>
 
+<<<<<<< HEAD
+=======
+```
+>>>>>>> 49776bdd37be26ff71f38f5cef997f5b3c554a80
   <div className="container position-relative z-2">
     <div className="row justify-content-center">
       <div className="col-12">

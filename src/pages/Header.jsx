@@ -44,7 +44,7 @@ zIndex: 1000,
         <small className="text-warning">
           Christian Ministry
         </small>
-        <h1>qwertyu</h1>
+        <h2>qwerty</h2>
       </div>
     </a>
 

@@ -13,10 +13,6 @@ function LandingPage() {
         overflowX: "hidden",
       }}
     >
-<<<<<<< HEAD
-=======
-      {/* NAVBAR */}
->>>>>>> 5358b86567950126d24d4b2790fb5e856e46e46f
       <nav
         className="navbar navbar-expand-lg sticky-top"
         style={{

@@ -1,3 +1,34 @@
+<<<<<<< HEAD
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap");
+
+:root {
+  --ministry-navy: #102a43;
+  --ministry-blue: #17365d;
+  --ministry-gold: #ffd166;
+  --ministry-teal: #2c7a7b;
+  --ministry-bg: #f5f8fb;
+  --ministry-text: #243b53;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; background: var(--ministry-bg); color: var(--ministry-text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+#root { width: 100%; min-height: 100vh; margin: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "Playfair Display", Georgia, serif; }
+button, input, textarea, select { font-family: inherit; }
+.btn { transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease; }
+.btn:hover { transform: translateY(-1px); }
+.card { border: 0; }
+.form-control, .form-select { border-radius: .75rem; border-color: #d9e2ec; padding: .75rem .9rem; }
+.form-control:focus, .form-select:focus { border-color: #2c7a7b; box-shadow: 0 0 0 .2rem rgba(44,122,123,.14); }
+.navbar { z-index: 1030; }
+.table-responsive { border-radius: 1rem; }
+@media (max-width: 767.98px) {
+  .display-1 { font-size: 3.2rem; }
+  .display-2 { font-size: 2.8rem; }
+  .display-3 { font-size: 2.4rem; }
+  .display-4 { font-size: 2.1rem; }
+=======
 :root {
   font-family:
     system-ui,
@@ -101,3 +132,34 @@ textarea {
     font-size: 0.95rem;
   }
 }
+<<<<<<< HEAD
+=======
+h2 {
+  font-size: 24px;
+  line-height: 118%;
+  letter-spacing: -0.24px;
+  margin: 0 0 8px;
+  @media (max-width: 1024px) {
+    font-size: 20px;
+  }
+}
+p {
+  margin: 0;
+}
+
+code,
+.counter {
+  font-family: var(--mono);
+  display: inline-flex;
+  border-radius: 4px;
+  color: var(--text-h);
+}
+
+code {
+  font-size: 15px;
+  line-height: 135%;
+  padding: 4px 8px;
+  background: var(--code-bg);
+>>>>>>> 49776bdd37be26ff71f38f5cef997f5b3c554a80
+}
+>>>>>>> 5358b86567950126d24d4b2790fb5e856e46e46f

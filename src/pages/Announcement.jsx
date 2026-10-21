@@ -1,62 +1,45 @@
-import React, { useEffect, useState } from "react";
-
-function Announcement() {
-  const [announcements, setAnnouncements] = useState([]);
-
+import { useEffect, useState } from "react";
+const API = "http://localhost:5000/api/announcements";
+export default function Announcement() {
+  const [items, setItems] = useState([]);
   useEffect(() => {
-    const loadAnnouncements = () => {
-      const savedAnnouncements = JSON.parse(
-        localStorage.getItem("churchAnnouncements") || "[]"
-      );
-
-      setAnnouncements(savedAnnouncements);
-    };
-
-    loadAnnouncements();
-
-    const interval = setInterval(loadAnnouncements, 1000);
-
-    return () => clearInterval(interval);
+    fetch(API)
+      .then((r) => r.json())
+      .then(setItems)
+      .catch(() => setItems([]));
   }, []);
-
   return (
-    <section
-      id="announcements"
-      className="announcement-section"
-    >
-      <div className="container">
+    <section id="announcements" className="py-5 bg-light">
+      <div className="container py-4">
         <div className="text-center mb-5">
           <p className="section-label">CHURCH UPDATES</p>
           <h2 className="section-title">Announcements</h2>
           <p className="section-description">
-            Stay updated with the latest church announcements.
+            Stay updated with the latest ministry announcements.
           </p>
         </div>
-
-        {announcements.length === 0 ? (
-          <div className="empty-announcement">
-            <span>📢</span>
-            <p>No announcements available.</p>
+        {items.length === 0 ? (
+          <div className="alert alert-light text-center border">
+            No announcements available.
           </div>
         ) : (
-          <div className="announcement-list">
-            {announcements.map((item) => (
-              <div
-                className="announcement-card"
-                key={item.id}
-              >
-                <div className="announcement-icon">📢</div>
-
-                <div>
-                  <h4>{item.title}</h4>
-
-                  <p>{item.message}</p>
-
-                  {item.date && (
-                    <small>
-                      Posted: {item.date}
-                    </small>
-                  )}
+          <div className="row g-4">
+            {items.map((item) => (
+              <div className="col-12 col-md-6" key={item.id}>
+                <div className="card h-100 border-0 shadow-sm rounded-4">
+                  <div className="card-body p-4">
+                    <div className="fs-2 mb-3">📢</div>
+                    <h3 className="h5 fw-bold">{item.title}</h3>
+                    <p
+                      className="text-secondary mb-2"
+                      style={{ whiteSpace: "pre-wrap" }}
+                    >
+                      {item.message}
+                    </p>
+                    {item.date && (
+                      <small className="text-muted">Posted: {item.date}</small>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -66,5 +49,3 @@ function Announcement() {
     </section>
   );
 }
-
-export default Announcement;

@@ -1,136 +1,181 @@
-import React, { useState } from "react";
-import { signInWithPopup } from "firebase/auth";
+import { useState } from "react";
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
+import { Link, useNavigate } from "react-router-dom";
 
-function Login() {
-  const [error, setError] = useState("");
+const messageFor = (error) =>
+  ({
+    "auth/invalid-credential": "Incorrect email or password.",
+    "auth/user-not-found": "No account was found with this email.",
+    "auth/wrong-password": "Incorrect password.",
+    "auth/invalid-email": "Please enter a valid email address.",
+    "auth/too-many-requests": "Too many attempts. Please try again later.",
+    "auth/popup-closed-by-user":
+      "Google sign-in was closed before it finished.",
+    "auth/popup-blocked": "Your browser blocked the Google sign-in popup.",
+  })[error?.code] ||
+  error?.message ||
+  "Unable to sign in.";
+
+export default function Login() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleGoogleLogin = async () => {
+  const submit = async (event) => {
+    event.preventDefault();
     setError("");
     setLoading(true);
-
     try {
-      // Force Google to show account selection
-      googleProvider.setCustomParameters({
-        prompt: "select_account",
-      });
-
-      const result = await signInWithPopup(auth, googleProvider);
-
-      console.log("Google login successful:", result.user);
-      <h1>eszrdtxgjbrzfjgjjzdxcv</h1>
-
-      setLoading(false); 
-    } catch (error) {
-      console.error("Google login failed:", error);
-      console.error("Error code:", error.code);
-      console.error("Error message:", error.message);
-
-      setError(`${error.code}: ${error.message}`);
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+    } catch (err) {
+      setError(messageFor(err));
+    } finally {
       setLoading(false);
     }
   };
 
+  const googleLogin = async () => {
+    setError("");
+    setGoogleLoading(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      setError(messageFor(err));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
-    <div
-      className="min-vh-100 d-flex align-items-center justify-content-center p-3"
-      style={{
-        backgroundImage:
-          "linear-gradient(rgba(8, 25, 43, 0.82), rgba(8, 25, 43, 0.94)), url('/logo.webp')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
+    <main className="auth-page d-flex align-items-center py-5">
       <div className="container">
         <div className="row justify-content-center">
-          <div className="col-12 col-sm-10 col-md-7 col-lg-5">
-
-            <div className="card border-0 shadow-lg rounded-4">
-              <div className="card-body p-4 p-md-5">
-
-                <div className="text-center mb-4">
-
-                  <div
-                    className="mx-auto mb-3 rounded-circle d-flex align-items-center justify-content-center"
-                    style={{
-                      width: "90px",
-                      height: "90px",
-                      background: "#ffd166",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "48px",
-                        color: "#102a43",
-                      }}
-                    >
-                      ✝
-                    </span>
-                  </div>
-
-                  <h2
-                    className="fw-bold"
-                    style={{ color: "#102a43" }}
-                  >
-                    Shepherd of My Soul
-                  </h2>
-
-                  <p className="text-secondary">
-                    Christian Ministry
+          <div className="col-12 col-md-10 col-lg-8 col-xl-7">
+            <div className="card border-0 shadow-lg rounded-4 overflow-hidden">
+              <div className="row g-0">
+                <div className="col-md-5 auth-panel d-flex flex-column justify-content-center p-4 p-lg-5 text-white">
+                  <img
+                    src="/logo.webp"
+                    alt="Shepherd of My Soul"
+                    className="rounded-circle border border-3 border-warning mb-4 auth-logo"
+                  />
+                  <span className="badge bg-warning text-dark align-self-start mb-3">
+                    WELCOME
+                  </span>
+                  <h1 className="h2 fw-bold">Shepherd of My Soul</h1>
+                  <p className="text-white-50 mb-0">
+                    A place for faith, fellowship, encouragement, and service.
                   </p>
-
-                  <p className="text-muted">
-                    Sign in with your Google account
-                  </p>
-
                 </div>
-
-                {error && (
-                  <div className="alert alert-danger">
-                    {error}
+                <div className="col-md-7 bg-white p-4 p-lg-5">
+                  <div className="mb-4">
+                    <h2 className="h3 fw-bold mb-1">Welcome Back</h2>
+                    <p className="text-secondary mb-0">
+                      Sign in to continue to the ministry.
+                    </p>
                   </div>
-                )}
-
-                <button
-                  type="button"
-                  className="btn btn-lg w-100 rounded-3 fw-semibold"
-                  onClick={handleGoogleLogin}
-                  disabled={loading}
-                  style={{
-                    backgroundColor: "#17365d",
-                    color: "#fff",
-                    border: "none",
-                    padding: "13px",
-                  }}
-                >
-                  {loading
-                    ? "Signing in..."
-                    : "Continue with Google"}
-                </button>
-
-                <p
-                  className="text-center small mt-4 mb-0"
-                  style={{ color: "#64748b" }}
-                >
-                  Guided by Faith • United in Love • Serving God
-                </p>
-
+                  {error && (
+                    <div className="alert alert-danger py-2">{error}</div>
+                  )}
+                  <form onSubmit={submit}>
+                    <div className="mb-3">
+                      <label className="form-label fw-semibold">Email</label>
+                      <input
+                        className="form-control form-control-lg"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        required
+                      />
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label fw-semibold">Password</label>
+                      <div className="input-group input-group-lg">
+                        <input
+                          className="form-control"
+                          type={showPassword ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Enter your password"
+                          required
+                        />
+                        <button
+                          className="btn btn-outline-secondary"
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                        >
+                          <i
+                            className={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      className="btn btn-primary btn-lg w-100"
+                      disabled={loading || googleLoading}
+                    >
+                      {loading ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" />
+                          Signing in...
+                        </>
+                      ) : (
+                        "Sign In"
+                      )}
+                    </button>
+                  </form>
+                  <div className="d-flex align-items-center gap-3 my-4">
+                    <hr className="flex-grow-1" />
+                    <span className="text-secondary small">OR</span>
+                    <hr className="flex-grow-1" />
+                  </div>
+                  <button
+                    className="btn btn-outline-dark btn-lg w-100"
+                    type="button"
+                    onClick={googleLogin}
+                    disabled={loading || googleLoading}
+                  >
+                    {googleLoading ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" />
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-google me-2" />
+                        Continue with Google
+                      </>
+                    )}
+                  </button>
+                  <p className="text-center text-secondary mt-4 mb-0">
+                    New here?{" "}
+                    <Link
+                      to="/signup"
+                      className="fw-semibold text-decoration-none"
+                    >
+                      Create an account
+                    </Link>
+                  </p>
+                  <div className="text-center mt-3">
+                    <button
+                      className="btn btn-link text-secondary text-decoration-none"
+                      onClick={() => navigate("/")}
+                    >
+                      ← Back to home
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <p
-              className="text-center mt-3 small"
-              style={{ color: "rgba(255,255,255,0.7)" }}
-            >
-              © 2026 Shepherd of My Soul Christian Ministry
-            </p>
-
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
-
-export default Login;

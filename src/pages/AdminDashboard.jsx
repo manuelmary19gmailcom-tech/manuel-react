@@ -1,1157 +1,446 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-function AdminDashboard({ onMessages, onLogout }) {
-  const [activeForm, setActiveForm] = useState(null);
-  const [editingId, setEditingId] = useState(null);
+const API = "http://localhost:8080/api";
+const emptyForms = {
+  events: { name: "", date: "", location: "" },
+  announcements: { title: "", message: "" },
+  bibleVerses: { text: "", reference: "" },
+};
 
-  const [events, setEvents] = useState([]);
-  const [announcements, setAnnouncements] = useState([]);
-  const [bibleVerses, setBibleVerses] = useState([]);
-
-  const [eventForm, setEventForm] = useState({
-    name: "",
-    date: "",
-    location: "",
-    description: "",
+export default function AdminDashboard({ user, onMessages, onLogout }) {
+  const [active, setActive] = useState("overview");
+  const [data, setData] = useState({
+    events: [],
+    announcements: [],
+    bibleVerses: [],
   });
+  const [forms, setForms] = useState(emptyForms);
+  const [editing, setEditing] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const [announcementForm, setAnnouncementForm] = useState({
-    title: "",
-    message: "",
-  });
-
-  const [verseForm, setVerseForm] = useState({
-    verse: "",
-    reference: "",
-  });
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [events, announcements, bibleVerses] = await Promise.all(
+        ["events", "announcements", "bible-verses"].map(async (endpoint) => {
+          const res = await fetch(`${API}/${endpoint}`);
+          if (!res.ok) throw new Error(`Unable to load ${endpoint}.`);
+          return res.json();
+        }),
+      );
+      setData({ events, announcements, bibleVerses });
+    } catch (err) {
+      setError(`${err.message} Make sure the backend is running on port 5000.`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const savedEvents =
-      JSON.parse(localStorage.getItem("churchEvents")) || [];
-
-    const savedAnnouncements =
-      JSON.parse(localStorage.getItem("churchAnnouncements")) || [];
-
-    const savedBibleVerses =
-      JSON.parse(localStorage.getItem("churchBibleVerses")) || [];
-
-    setEvents(savedEvents);
-    setAnnouncements(savedAnnouncements);
-    setBibleVerses(savedBibleVerses);
+    load();
   }, []);
 
-  const saveEvents = (updatedEvents) => {
-    setEvents(updatedEvents);
-    localStorage.setItem("churchEvents", JSON.stringify(updatedEvents));
+  const stats = useMemo(
+    () => [
+      ["Announcements", data.announcements.length, "bi-megaphone"],
+      ["Events", data.events.length, "bi-calendar-event"],
+      ["Bible Verses", data.bibleVerses.length, "bi-book"],
+    ],
+    [data],
+  );
+
+  const sectionConfig = {
+    events: {
+      title: "Events",
+      singular: "Event",
+      endpoint: "events",
+      fields: ["name", "date", "location"],
+    },
+    announcements: {
+      title: "Announcements",
+      singular: "Announcement",
+      endpoint: "announcements",
+      fields: ["title", "message"],
+    },
+    bibleVerses: {
+      title: "Bible Verses",
+      singular: "Bible Verse",
+      endpoint: "bible-verses",
+      fields: ["text", "reference"],
+    },
   };
 
-  const saveAnnouncements = (updatedAnnouncements) => {
-    setAnnouncements(updatedAnnouncements);
-    localStorage.setItem(
-      "churchAnnouncements",
-      JSON.stringify(updatedAnnouncements)
-    );
-  };
-
-  const saveBibleVerses = (updatedVerses) => {
-    setBibleVerses(updatedVerses);
-    localStorage.setItem(
-      "churchBibleVerses",
-      JSON.stringify(updatedVerses)
-    );
-  };
-
-  const resetForms = () => {
-    setEventForm({
-      name: "",
-      date: "",
-      location: "",
-      description: "",
+  const startEdit = (type, item) => {
+    setEditing({ type, id: item.id });
+    const next = { ...emptyForms[type] };
+    sectionConfig[type].fields.forEach((field) => {
+      next[field] = item[field] || "";
     });
-
-    setAnnouncementForm({
-      title: "",
-      message: "",
-    });
-
-    setVerseForm({
-      verse: "",
-      reference: "",
-    });
-
-    setEditingId(null);
-    setActiveForm(null);
+    setForms((current) => ({ ...current, [type]: next }));
+    setActive(type);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const openForm = (formName) => {
-    resetForms();
-    setActiveForm(formName);
+  const resetForm = (type) => {
+    setEditing(null);
+    setForms((current) => ({ ...current, [type]: { ...emptyForms[type] } }));
   };
 
-  const handleEventSubmit = async (event) => {
-    event.preventDefault();
-
-    if (
-      !eventForm.name.trim() ||
-      !eventForm.date ||
-      !eventForm.location.trim()
-    ) {
-      alert("Please complete the event details.");
-      return;
-    }
-
-    // EDIT EVENT
-    if (editingId) {
-      const updatedEvents = events.map((item) =>
-        item.id === editingId
-          ? {
-              ...item,
-              ...eventForm,
-            }
-          : item
-      );
-
-      saveEvents(updatedEvents);
-      alert("Event updated successfully.");
-      resetForms();
-      return;
-    }
-
-    // ADD EVENT - SEND TO EXPRESS BACKEND
+  const save = async (type) => {
+    setSaving(true);
+    setError("");
     try {
-      const response = await fetch("http://localhost:5000/api/events", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const config = sectionConfig[type];
+      const id = editing?.type === type ? editing.id : null;
+      const res = await fetch(
+        `${API}/${config.endpoint}${id ? `/${id}` : ""}`,
+        {
+          method: id ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(forms[type]),
         },
-        body: JSON.stringify({
-          name: eventForm.name,
-          date: eventForm.date,
-          location: eventForm.location,
-        }),
+      );
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || "Save failed.");
+      resetForm(type);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (type, id) => {
+    if (!window.confirm("Delete this record?")) return;
+    try {
+      const res = await fetch(`${API}/${sectionConfig[type].endpoint}/${id}`, {
+        method: "DELETE",
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to add event.");
-      }
-
-      const newEvent = {
-        ...data.event,
-        description: eventForm.description,
-      };
-
-      const updatedEvents = [...events, newEvent];
-
-      saveEvents(updatedEvents);
-
-      alert("Event added successfully!");
-
-      resetForms();
-    } catch (error) {
-      console.error("Error adding event:", error);
-      alert(
-        "Failed to add event. Please make sure the Express server is running."
-      );
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || "Delete failed.");
+      await load();
+    } catch (err) {
+      setError(err.message);
     }
   };
 
-  const handleAnnouncementSubmit = async (event) => {
-  event.preventDefault();
-
-  if (
-    !announcementForm.title.trim() ||
-    !announcementForm.message.trim()
-  ) {
-    alert("Please complete the announcement details.");
-    return;
-  }
-
-  // EDIT ANNOUNCEMENT
-  if (editingId) {
-    const updatedAnnouncements = announcements.map((item) =>
-      item.id === editingId
-        ? {
-            ...item,
-            ...announcementForm,
-          }
-        : item
+  const renderForm = (type) => {
+    const config = sectionConfig[type];
+    const form = forms[type];
+    return (
+      <div className="card border-0 shadow-sm rounded-4 mb-4">
+        <div className="card-body p-4">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h3 className="h5 fw-bold mb-1">
+                {editing?.type === type
+                  ? `Edit ${config.singular}`
+                  : `Add ${config.singular}`}
+              </h3>
+              <p className="text-secondary mb-0 small">
+                Manage {config.title.toLowerCase()} for the ministry.
+              </p>
+            </div>
+            {editing?.type === type && (
+              <button
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => resetForm(type)}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+          {config.fields.map((field) => (
+            <div className="mb-3" key={field}>
+              <label className="form-label fw-semibold text-capitalize">
+                {field === "text" ? "Verse" : field}
+              </label>
+              {field === "message" || field === "text" ? (
+                <textarea
+                  className="form-control"
+                  rows="4"
+                  value={form[field]}
+                  onChange={(e) =>
+                    setForms((current) => ({
+                      ...current,
+                      [type]: { ...current[type], [field]: e.target.value },
+                    }))
+                  }
+                  required
+                />
+              ) : (
+                <input
+                  className="form-control"
+                  type={field === "date" ? "date" : "text"}
+                  value={form[field]}
+                  onChange={(e) =>
+                    setForms((current) => ({
+                      ...current,
+                      [type]: { ...current[type], [field]: e.target.value },
+                    }))
+                  }
+                  required
+                />
+              )}
+            </div>
+          ))}
+          <button
+            className="btn btn-primary"
+            disabled={saving}
+            onClick={() => save(type)}
+          >
+            {saving ? "Saving..." : editing?.type === type ? "Update" : "Add"}
+          </button>
+        </div>
+      </div>
     );
-
-    saveAnnouncements(updatedAnnouncements);
-    alert("Announcement updated successfully.");
-    resetForms();
-    return;
-  }
-
-  // ADD ANNOUNCEMENT - SEND TO EXPRESS BACKEND
-  try {
-    const response = await fetch(
-      "http://localhost:5000/api/announcements",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: announcementForm.title,
-          message: announcementForm.message,
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Failed to add announcement.");
-    }
-
-    const newAnnouncement = {
-      ...data.announcement,
-      date: new Date().toLocaleDateString(),
-    };
-
-    saveAnnouncements([...announcements, newAnnouncement]);
-
-    console.log(data);
-
-    alert("Announcement posted successfully.");
-    resetForms();
-  } catch (error) {
-    console.error("Error adding announcement:", error);
-    alert(
-      "Failed to post announcement. Please make sure the Express server is running."
-    );
-  }
-};
-  
-  const handleVerseSubmit = async (event) => {
-  event.preventDefault();
-
-  if (
-    !verseForm.verse.trim() ||
-    !verseForm.reference.trim()
-  ) {
-    alert("Please complete the Bible verse details.");
-    return;
-  }
-
-  // EDIT BIBLE VERSE
-  if (editingId) {
-    const updatedVerses = bibleVerses.map((item) =>
-      item.id === editingId
-        ? {
-            ...item,
-            ...verseForm,
-          }
-        : item
-    );
-
-    saveBibleVerses(updatedVerses);
-    alert("Bible verse updated successfully.");
-    resetForms();
-    return;
-  }
-
-  // ADD BIBLE VERSE - SEND TO EXPRESS BACKEND
-  try {
-    const response = await fetch(
-      "http://localhost:5000/api/bible-verses",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text: verseForm.verse,
-          reference: verseForm.reference,
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data.message || "Failed to add Bible verse."
-      );
-    }
-
-    const newBibleVerse = {
-      ...data.bibleVerse,
-      date: new Date().toLocaleDateString(),
-    };
-
-    saveBibleVerses([...bibleVerses, newBibleVerse]);
-
-    console.log(data);
-
-    alert("Bible verse added successfully.");
-    resetForms();
-  } catch (error) {
-    console.error("Error adding Bible verse:", error);
-    alert(
-      "Failed to add Bible verse. Please make sure the Express server is running."
-    );
-  }
-};
-  
-
-  const editEvent = (item) => {
-    setEventForm({
-      name: item.name || "",
-      date: item.date || "",
-      location: item.location || "",
-      description: item.description || "",
-    });
-
-    setEditingId(item.id);
-    setActiveForm("event");
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const editAnnouncement = (item) => {
-    setAnnouncementForm({
-      title: item.title || "",
-      message: item.message || "",
-    });
-
-    setEditingId(item.id);
-    setActiveForm("announcement");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const editVerse = (item) => {
-    setVerseForm({
-      verse: item.verse || "",
-      reference: item.reference || "",
-    });
-
-    setEditingId(item.id);
-    setActiveForm("verse");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const deleteEvent = (id) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this event?"
+  const renderTable = (type) => {
+    const config = sectionConfig[type];
+    const items = data[type];
+    return (
+      <div className="card border-0 shadow-sm rounded-4">
+        <div className="card-body p-0">
+          <div className="p-4 border-bottom">
+            <h3 className="h5 fw-bold mb-0">{config.title}</h3>
+          </div>
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0">
+              <thead className="table-light">
+                <tr>
+                  {config.fields.map((field) => (
+                    <th key={field} className="text-capitalize">
+                      {field === "text" ? "Verse" : field}
+                    </th>
+                  ))}
+                  <th className="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.length ? (
+                  items.map((item) => (
+                    <tr key={item.id}>
+                      {config.fields.map((field) => (
+                        <td key={field}>
+                          <div
+                            className={
+                              field === "message" || field === "text"
+                                ? "text-truncate"
+                                : ""
+                            }
+                            style={{
+                              maxWidth:
+                                field === "message" || field === "text"
+                                  ? 420
+                                  : undefined,
+                            }}
+                          >
+                            {item[field]}
+                          </div>
+                        </td>
+                      ))}
+                      <td className="text-end text-nowrap">
+                        <button
+                          className="btn btn-sm btn-outline-primary me-2"
+                          onClick={() => startEdit(type, item)}
+                        >
+                          <i className="bi bi-pencil" />
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => remove(type, item.id)}
+                        >
+                          <i className="bi bi-trash" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={config.fields.length + 1}
+                      className="text-center py-5 text-secondary"
+                    >
+                      No records yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     );
-
-    if (!confirmDelete) return;
-
-    const updatedEvents = events.filter((item) => item.id !== id);
-    saveEvents(updatedEvents);
-  };
-
-  const deleteAnnouncement = (id) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this announcement?"
-    );
-
-    if (!confirmDelete) return;
-
-    const updatedAnnouncements = announcements.filter(
-      (item) => item.id !== id
-    );
-
-    saveAnnouncements(updatedAnnouncements);
-  };
-
-  const deleteVerse = (id) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this Bible verse?"
-    );
-
-    if (!confirmDelete) return;
-
-    const updatedVerses = bibleVerses.filter(
-      (item) => item.id !== id
-    );
-
-    saveBibleVerses(updatedVerses);
   };
 
   return (
-    <div className="min-vh-100 bg-light py-4">
-      <div className="container-fluid">
-        <div className="container">
-
-          {/* ADMIN HEADER */}
-          <div className="card border-0 shadow-lg rounded-4 mb-4 overflow-hidden">
+    <div className="admin-shell min-vh-100 bg-light">
+      <nav className="navbar navbar-expand-lg navbar-dark admin-navbar shadow-sm sticky-top">
+        <div className="container-fluid px-3 px-lg-4">
+          <a
+            className="navbar-brand fw-bold d-flex align-items-center gap-2"
+            href="#top"
+          >
+            <img
+              src="/logo.webp"
+              width="40"
+              height="40"
+              className="rounded-circle border border-warning"
+              alt=""
+            />{" "}
+            Shepherd of My Soul{" "}
+            <span className="badge bg-warning text-dark">ADMIN</span>
+          </a>
+          <div className="d-flex align-items-center gap-2">
+            <span className="d-none d-md-inline text-white-50 small">
+              {user?.name || user?.email}
+            </span>
+            <button className="btn btn-outline-light btn-sm" onClick={onLogout}>
+              <i className="bi bi-box-arrow-right me-1" />
+              Logout
+            </button>
+          </div>
+        </div>
+      </nav>
+      <div className="container-fluid p-3 p-lg-4" id="top">
+        {error && (
+          <div className="alert alert-danger d-flex justify-content-between">
+            <span>{error}</span>
+            <button className="btn-close" onClick={() => setError("")} />
+          </div>
+        )}
+        <div className="row g-4">
+          <aside className="col-12 col-lg-3 col-xl-2">
             <div
-              className="card-body text-white p-4"
-              style={{
-                background:
-                  "linear-gradient(135deg, #17365d, #102a43)",
-              }}
+              className="card border-0 shadow-sm rounded-4 sticky-lg-top"
+              style={{ top: 80 }}
             >
-              <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-
-                <div className="d-flex align-items-center gap-3">
-                  <div
-                    className="rounded-4 d-flex justify-content-center align-items-center"
-                    style={{
-                      width: "65px",
-                      height: "65px",
-                      backgroundColor: "#ffd166",
-                      color: "#17365d",
-                      fontSize: "36px",
-                    }}
-                  >
-                    ✝
-                  </div>
-
-                  <div>
-                    <small className="text-warning fw-bold">
-                      ADMIN PANEL
-                    </small>
-
-                    <h1 className="h3 fw-bold mb-1">
-                      Shepherd of My Soul
-                    </h1>
-
-                    <p className="mb-0 text-light">
-                      Christian Ministry Dashboard
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="btn btn-warning fw-bold px-4"
-                  onClick={onLogout}
-                >
-                  Logout
-                </button>
-
-              </div>
-            </div>
-          </div>
-
-          {/* WELCOME BANNER */}
-          <div className="card border-0 shadow-sm rounded-4 mb-4">
-            <div className="card-body p-4">
-              <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-
-                <div>
-                  <p className="text-warning fw-bold mb-2">
-                    WELCOME ADMIN
-                  </p>
-
-                  <h2 className="h4 fw-bold text-primary mb-2">
-                    Manage Your Church Website
-                  </h2>
-
-                  <p className="text-muted mb-0">
-                    Add announcements, events, and Bible verses
-                    that will appear on the user website.
-                  </p>
-                </div>
-
-                <div
-                  className="rounded-4 d-flex justify-content-center align-items-center"
-                  style={{
-                    width: "85px",
-                    height: "85px",
-                    backgroundColor: "#ffd166",
-                    color: "#17365d",
-                    fontSize: "42px",
-                  }}
-                >
-                  📖
-                </div>
-
-              </div>
-            </div>
-          </div>
-
-          {/* STATISTICS */}
-          <div className="row g-4 mb-4">
-
-            <div className="col-12 col-sm-6 col-xl-3">
-              <div className="card border-0 shadow-sm rounded-4 h-100">
-                <div className="card-body">
-                  <div className="fs-1 mb-2">📅</div>
-
-                  <h2 className="fw-bold text-primary">
-                    {events.length}
-                  </h2>
-
-                  <p className="text-muted mb-3">
-                    Total Events
-                  </p>
-
+              <div className="list-group list-group-flush rounded-4 overflow-hidden">
+                {[
+                  ["overview", "Dashboard", "speedometer2"],
+                  ["announcements", "Announcements", "megaphone"],
+                  ["events", "Events", "calendar-event"],
+                  ["bibleVerses", "Bible Verses", "book"],
+                  ["messages", "Messages", "chat-dots"],
+                ].map(([key, label, icon]) => (
                   <button
-                    type="button"
-                    className="btn btn-primary w-100"
-                    onClick={() => openForm("event")}
+                    key={key}
+                    className={`list-group-item list-group-item-action border-0 py-3 ${active === key ? "active" : ""}`}
+                    onClick={() =>
+                      key === "messages" ? onMessages() : setActive(key)
+                    }
                   >
-                    Add Event
+                    <i className={`bi bi-${icon} me-2`} />
+                    {label}
                   </button>
-                </div>
+                ))}
               </div>
             </div>
-
-            <div className="col-12 col-sm-6 col-xl-3">
-              <div className="card border-0 shadow-sm rounded-4 h-100">
-                <div className="card-body">
-                  <div className="fs-1 mb-2">📢</div>
-
-                  <h2 className="fw-bold text-warning">
-                    {announcements.length}
-                  </h2>
-
-                  <p className="text-muted mb-3">
-                    Announcements
+          </aside>
+          <main className="col-12 col-lg-9 col-xl-10">
+            {active === "overview" && (
+              <>
+                <div className="mb-4">
+                  <h1 className="h2 fw-bold mb-1">Admin Dashboard</h1>
+                  <p className="text-secondary mb-0">
+                    Manage the ministry content from one place.
                   </p>
-
-                  <button
-                    type="button"
-                    className="btn btn-warning w-100"
-                    onClick={() => openForm("announcement")}
-                  >
-                    Post Announcement
-                  </button>
                 </div>
-              </div>
-            </div>
-
-            <div className="col-12 col-sm-6 col-xl-3">
-              <div className="card border-0 shadow-sm rounded-4 h-100">
-                <div className="card-body">
-                  <div className="fs-1 mb-2">📖</div>
-
-                  <h2 className="fw-bold text-info">
-                    {bibleVerses.length}
-                  </h2>
-
-                  <p className="text-muted mb-3">
-                    Bible Verses
-                  </p>
-
-                  <button
-                    type="button"
-                    className="btn btn-info w-100"
-                    onClick={() => openForm("verse")}
-                  >
-                    Add Bible Verse
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="col-12 col-sm-6 col-xl-3">
-              <div className="card border-0 shadow-sm rounded-4 h-100">
-                <div className="card-body">
-                  <div className="fs-1 mb-2">💬</div>
-
-                  <h2 className="fw-bold text-success">
-                    Chat
-                  </h2>
-
-                  <p className="text-muted mb-3">
-                    User messages
-                  </p>
-
-                  <button
-                    type="button"
-                    className="btn btn-success w-100"
-                    onClick={onMessages}
-                  >
-                    View Messages
-                  </button>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* EVENT FORM */}
-          {activeForm === "event" && (
-            <div className="card border-0 shadow-sm rounded-4 mb-4">
-              <div className="card-body p-4">
-
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                  <div>
-                    <h3 className="h4 fw-bold text-primary mb-1">
-                      {editingId ? "Edit Event" : "Add New Event"}
-                    </h3>
-
-                    <p className="text-muted mb-0">
-                      Create an event for the church website.
-                    </p>
-                  </div>
-
-                  <span className="fs-2">📅</span>
-                </div>
-
-                <form onSubmit={handleEventSubmit}>
-                  <div className="row g-3">
-
-                    <div className="col-12 col-md-6">
-                      <label className="form-label fw-bold">
-                        Event Name
-                      </label>
-
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Example: Sunday Worship"
-                        value={eventForm.name}
-                        onChange={(event) =>
-                          setEventForm({
-                            ...eventForm,
-                            name: event.target.value,
-                          })
+                <div className="row g-3 mb-4">
+                  {stats.map(([label, count, icon]) => (
+                    <div className="col-12 col-md-4" key={label}>
+                      <button
+                        className="card border-0 shadow-sm rounded-4 w-100 text-start"
+                        onClick={() =>
+                          setActive(
+                            label === "Announcements"
+                              ? "announcements"
+                              : label === "Events"
+                                ? "events"
+                                : "bibleVerses",
+                          )
                         }
-                      />
-                    </div>
-
-                    <div className="col-12 col-md-6">
-                      <label className="form-label fw-bold">
-                        Event Date
-                      </label>
-
-                      <input
-                        type="date"
-                        className="form-control"
-                        value={eventForm.date}
-                        onChange={(event) =>
-                          setEventForm({
-                            ...eventForm,
-                            date: event.target.value,
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div className="col-12">
-                      <label className="form-label fw-bold">
-                        Location
-                      </label>
-
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Example: Church Hall"
-                        value={eventForm.location}
-                        onChange={(event) =>
-                          setEventForm({
-                            ...eventForm,
-                            location: event.target.value,
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div className="col-12">
-                      <label className="form-label fw-bold">
-                        Description
-                      </label>
-
-                      <textarea
-                        className="form-control"
-                        rows="4"
-                        placeholder="Enter event description"
-                        value={eventForm.description}
-                        onChange={(event) =>
-                          setEventForm({
-                            ...eventForm,
-                            description: event.target.value,
-                          })
-                        }
-                      ></textarea>
-                    </div>
-
-                  </div>
-
-                  <div className="d-flex flex-column flex-sm-row gap-2 mt-4">
-
-                    <button
-                      type="submit"
-                      className="btn btn-primary fw-bold px-4"
-                    >
-                      {editingId ? "Update Event" : "Save Event"}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="btn btn-secondary px-4"
-                      onClick={resetForms}
-                    >
-                      Cancel
-                    </button>
-
-                  </div>
-                </form>
-
-              </div>
-            </div>
-          )}
-
-          {/* ANNOUNCEMENT FORM */}
-          {activeForm === "announcement" && (
-            <div className="card border-0 shadow-sm rounded-4 mb-4">
-              <div className="card-body p-4">
-
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                  <div>
-                    <h3 className="h4 fw-bold text-primary mb-1">
-                      {editingId
-                        ? "Edit Announcement"
-                        : "Post Announcement"}
-                    </h3>
-
-                    <p className="text-muted mb-0">
-                      Share important church updates.
-                    </p>
-                  </div>
-
-                  <span className="fs-2">📢</span>
-                </div>
-
-                <form onSubmit={handleAnnouncementSubmit}>
-
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">
-                      Announcement Title
-                    </label>
-
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Enter announcement title"
-                      value={announcementForm.title}
-                      onChange={(event) =>
-                        setAnnouncementForm({
-                          ...announcementForm,
-                          title: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">
-                      Announcement Message
-                    </label>
-
-                    <textarea
-                      className="form-control"
-                      rows="5"
-                      placeholder="Enter announcement message"
-                      value={announcementForm.message}
-                      onChange={(event) =>
-                        setAnnouncementForm({
-                          ...announcementForm,
-                          message: event.target.value,
-                        })
-                      }
-                    ></textarea>
-                  </div>
-
-                  <div className="d-flex flex-column flex-sm-row gap-2">
-
-                    <button
-                      type="submit"
-                      className="btn btn-warning fw-bold px-4"
-                    >
-                      {editingId
-                        ? "Update Announcement"
-                        : "Post Announcement"}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="btn btn-secondary px-4"
-                      onClick={resetForms}
-                    >
-                      Cancel
-                    </button>
-
-                  </div>
-
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* BIBLE VERSE FORM */}
-          {activeForm === "verse" && (
-            <div className="card border-0 shadow-sm rounded-4 mb-4">
-              <div className="card-body p-4">
-
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                  <div>
-                    <h3 className="h4 fw-bold text-primary mb-1">
-                      {editingId
-                        ? "Edit Bible Verse"
-                        : "Add Bible Verse"}
-                    </h3>
-
-                    <p className="text-muted mb-0">
-                      Post a Bible verse for the user website.
-                    </p>
-                  </div>
-
-                  <span className="fs-2">📖</span>
-                </div>
-
-                <form onSubmit={handleVerseSubmit}>
-
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">
-                      Bible Verse
-                    </label>
-
-                    <textarea
-                      className="form-control"
-                      rows="4"
-                      placeholder="Enter Bible verse"
-                      value={verseForm.verse}
-                      onChange={(event) =>
-                        setVerseForm({
-                          ...verseForm,
-                          verse: event.target.value,
-                        })
-                      }
-                    ></textarea>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">
-                      Bible Reference
-                    </label>
-
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Example: Romans 7:15"
-                      value={verseForm.reference}
-                      onChange={(event) =>
-                        setVerseForm({
-                          ...verseForm,
-                          reference: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="d-flex flex-column flex-sm-row gap-2">
-
-                    <button
-                      type="submit"
-                      className="btn btn-info fw-bold px-4"
-                    >
-                      {editingId
-                        ? "Update Bible Verse"
-                        : "Save Bible Verse"}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="btn btn-secondary px-4"
-                      onClick={resetForms}
-                    >
-                      Cancel
-                    </button>
-
-                  </div>
-
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* EVENTS LIST */}
-          <div className="card border-0 shadow-sm rounded-4 mb-4">
-            <div className="card-body p-4">
-
-              <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-4">
-
-                <div>
-                  <small className="text-warning fw-bold">
-                    CONTENT MANAGEMENT
-                  </small>
-
-                  <h2 className="h4 fw-bold text-primary mb-0">
-                    Church Events
-                  </h2>
-                </div>
-
-                <span className="badge bg-primary rounded-pill fs-6">
-                  {events.length}
-                </span>
-
-              </div>
-
-              {events.length === 0 ? (
-                <div className="alert alert-light border text-center mb-0">
-                  📅 No events available yet.
-                </div>
-              ) : (
-                <div className="row g-3">
-
-                  {events.map((item) => (
-                    <div
-                      className="col-12 col-lg-6"
-                      key={item.id}
-                    >
-                      <div className="card border h-100">
-                        <div className="card-body">
-
-                          <div className="d-flex gap-3">
-
-                            <div className="fs-2">📅</div>
-
-                            <div className="flex-grow-1">
-
-                              <h3 className="h5 fw-bold text-primary">
-                                {item.name}
-                              </h3>
-
-                              <p className="mb-1">
-                                <strong>Date:</strong> {item.date}
-                              </p>
-
-                              <p className="mb-1">
-                                <strong>Location:</strong>{" "}
-                                {item.location}
-                              </p>
-
-                              {item.description && (
-                                <p className="text-muted mb-3">
-                                  {item.description}
-                                </p>
-                              )}
-
-                              <div className="d-flex flex-wrap gap-2">
-
-                                <button
-                                  type="button"
-                                  className="btn btn-outline-primary btn-sm"
-                                  onClick={() => editEvent(item)}
-                                >
-                                  Edit
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="btn btn-outline-danger btn-sm"
-                                  onClick={() => deleteEvent(item.id)}
-                                >
-                                  Delete
-                                </button>
-
-                              </div>
-
+                      >
+                        <div className="card-body p-4 d-flex justify-content-between align-items-center">
+                          <div>
+                            <div className="text-secondary small">{label}</div>
+                            <div className="display-6 fw-bold text-dark">
+                              {count}
                             </div>
                           </div>
-
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                </div>
-              )}
-
-            </div>
-          </div>
-
-          {/* ANNOUNCEMENTS LIST */}
-          <div className="card border-0 shadow-sm rounded-4 mb-4">
-            <div className="card-body p-4">
-
-              <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-4">
-
-                <div>
-                  <small className="text-warning fw-bold">
-                    CONTENT MANAGEMENT
-                  </small>
-
-                  <h2 className="h4 fw-bold text-primary mb-0">
-                    Announcements
-                  </h2>
-                </div>
-
-                <span className="badge bg-warning text-dark rounded-pill fs-6">
-                  {announcements.length}
-                </span>
-
-              </div>
-
-              {announcements.length === 0 ? (
-                <div className="alert alert-light border text-center mb-0">
-                  📢 No announcements posted yet.
-                </div>
-              ) : (
-                <div className="row g-3">
-
-                  {announcements.map((item) => (
-                    <div
-                      className="col-12 col-lg-6"
-                      key={item.id}
-                    >
-                      <div className="card border h-100">
-                        <div className="card-body">
-
-                          <div className="d-flex gap-3">
-
-                            <div className="fs-2">📢</div>
-
-                            <div className="flex-grow-1">
-
-                              <h3 className="h5 fw-bold text-primary">
-                                {item.title}
-                              </h3>
-
-                              <p className="text-muted">
-                                {item.message}
-                              </p>
-
-                              {item.date && (
-                                <small className="text-secondary d-block mb-3">
-                                  Posted: {item.date}
-                                </small>
-                              )}
-
-                              <div className="d-flex flex-wrap gap-2">
-
-                                <button
-                                  type="button"
-                                  className="btn btn-outline-primary btn-sm"
-                                  onClick={() =>
-                                    editAnnouncement(item)
-                                  }
-                                >
-                                  Edit
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="btn btn-outline-danger btn-sm"
-                                  onClick={() =>
-                                    deleteAnnouncement(item.id)
-                                  }
-                                >
-                                  Delete
-                                </button>
-
-                              </div>
-
-                            </div>
+                          <div className="dashboard-icon">
+                            <i className={`bi bi-${icon}`} />
                           </div>
-
                         </div>
-                      </div>
+                      </button>
                     </div>
                   ))}
-
                 </div>
-              )}
-
-            </div>
-          </div>
-
-          {/* BIBLE VERSES LIST */}
-          <div className="card border-0 shadow-sm rounded-4 mb-4">
-            <div className="card-body p-4">
-
-              <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-4">
-
-                <div>
-                  <small className="text-warning fw-bold">
-                    CONTENT MANAGEMENT
-                  </small>
-
-                  <h2 className="h4 fw-bold text-primary mb-0">
-                    Bible Verses
-                  </h2>
-                </div>
-
-                <span className="badge bg-info text-dark rounded-pill fs-6">
-                  {bibleVerses.length}
-                </span>
-
-              </div>
-
-              {bibleVerses.length === 0 ? (
-                <div className="alert alert-light border text-center mb-0">
-                  📖 No Bible verses posted yet.
-                </div>
-              ) : (
-                <div className="row g-3">
-
-                  {bibleVerses.map((item) => (
-                    <div
-                      className="col-12 col-lg-6"
-                      key={item.id}
-                    >
-                      <div className="card border h-100">
-                        <div className="card-body">
-
-                          <div className="d-flex gap-3">
-
-                            <div className="fs-2">📖</div>
-
-                            <div className="flex-grow-1">
-
-                              <p className="fst-italic text-primary fs-5">
-                                “{item.verse}”
-                              </p>
-
-                              <p className="fw-bold mb-3">
-                                — {item.reference}
-                              </p>
-
-                              <div className="d-flex flex-wrap gap-2">
-
-                                <button
-                                  type="button"
-                                  className="btn btn-outline-primary btn-sm"
-                                  onClick={() => editVerse(item)}
-                                >
-                                  Edit
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="btn btn-outline-danger btn-sm"
-                                  onClick={() => deleteVerse(item.id)}
-                                >
-                                  Delete
-                                </button>
-
-                              </div>
-
-                            </div>
-                          </div>
-
-                        </div>
-                      </div>
+                <div className="card border-0 shadow-sm rounded-4">
+                  <div className="card-body p-4">
+                    <h2 className="h5 fw-bold">Quick Actions</h2>
+                    <div className="d-flex flex-wrap gap-2">
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => setActive("announcements")}
+                      >
+                        <i className="bi bi-plus-lg me-1" />
+                        Announcement
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => setActive("events")}
+                      >
+                        <i className="bi bi-plus-lg me-1" />
+                        Event
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => setActive("bibleVerses")}
+                      >
+                        <i className="bi bi-plus-lg me-1" />
+                        Bible Verse
+                      </button>
+                      <button
+                        className="btn btn-outline-primary"
+                        onClick={onMessages}
+                      >
+                        <i className="bi bi-chat-dots me-1" />
+                        View Messages
+                      </button>
                     </div>
-                  ))}
-
+                  </div>
                 </div>
-              )}
-
-            </div>
-          </div>
-
-          {/* FOOTER */}
-          <div className="text-center text-muted py-3">
-            <small>
-              Shepherd of My Soul Christian Ministry © 2026
-            </small>
-          </div>
-
+              </>
+            )}
+            {active !== "overview" && active !== "messages" && (
+              <>
+                <div className="mb-4">
+                  <h1 className="h2 fw-bold mb-1">
+                    {sectionConfig[active].title}
+                  </h1>
+                  <p className="text-secondary mb-0">
+                    Create, update, and remove ministry records.
+                  </p>
+                </div>
+                {renderForm(active)}
+                {loading ? (
+                  <div className="text-center py-5">
+                    <div className="spinner-border text-primary" />
+                  </div>
+                ) : (
+                  renderTable(active)
+                )}
+              </>
+            )}
+          </main>
         </div>
       </div>
     </div>
   );
 }
-
-export default AdminDashboard;
-

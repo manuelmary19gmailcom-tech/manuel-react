@@ -12,7 +12,10 @@
   "dependencies": {
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.4"
+    "react-router-dom": "^7.18.4",
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.1",
+    "firebase": "^12.19.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",

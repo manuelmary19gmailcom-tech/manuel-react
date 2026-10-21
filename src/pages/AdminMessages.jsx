@@ -1,85 +1,88 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
-function AdminMessages({ onBack, onLogout }) {
+const API = "http://localhost:5000/api/messages";
+
+export default function AdminMessages({ onBack, onLogout }) {
   const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const loadMessages = () => {
+  const load = async () => {
     try {
-      const savedMessages =
-        JSON.parse(localStorage.getItem("churchMessages")) || [];
-
-      setMessages(savedMessages);
-    } catch (error) {
-      console.error("Error loading messages:", error);
-      setMessages([]);
+      const res = await fetch(API);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Unable to load messages.");
+      setMessages(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadMessages();
-
-    const interval = setInterval(loadMessages, 1000);
-
-    window.addEventListener("storage", loadMessages);
-    window.addEventListener("churchMessagesUpdated", loadMessages);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("storage", loadMessages);
-      window.removeEventListener("churchMessagesUpdated", loadMessages);
-    };
+    load();
   }, []);
 
-  const handleReply = (id, replyText) => {
-    const updatedMessages = messages.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            reply: replyText,
-          }
-        : item
-    );
-
-    localStorage.setItem(
-      "churchMessages",
-      JSON.stringify(updatedMessages)
-    );
-
-    setMessages(updatedMessages);
+  const reply = async (id, value) => {
+    try {
+      const res = await fetch(`${API}/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reply: value }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Unable to save reply.");
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
-  const handleDelete = (id) => {
-    const updatedMessages = messages.filter((item) => item.id !== id);
-
-    localStorage.setItem(
-      "churchMessages",
-      JSON.stringify(updatedMessages)
-    );
-
-    setMessages(updatedMessages);
+  const remove = async (id) => {
+    if (!window.confirm("Delete this message?")) return;
+    try {
+      const res = await fetch(`${API}/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Unable to delete message.");
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.header}>
-        <button style={styles.backButton} onClick={onBack}>
-          ← Back to Dashboard
-        </button>
-
-        <button style={styles.logoutButton} onClick={onLogout}>
-          Logout
-        </button>
-      </div>
-
-      <div style={styles.container}>
-        <h1 style={styles.title}>Messages from Members</h1>
-        <p style={styles.subtitle}>
-          Read messages and prayer requests sent by church members.
-        </p>
-
-        {messages.length === 0 ? (
-          <div style={styles.empty}>
-            No messages yet.
+    <div className="min-vh-100 bg-light">
+      <nav className="navbar navbar-dark admin-navbar shadow-sm">
+        <div className="container-fluid px-3 px-lg-5">
+          <button className="btn btn-outline-light" onClick={onBack}>
+            <i className="bi bi-arrow-left me-1" />
+            Dashboard
+          </button>
+          <div className="d-flex gap-2">
+            <button className="btn btn-outline-light btn-sm" onClick={onLogout}>
+              Logout
+            </button>
+          </div>
+        </div>
+      </nav>
+      <main className="container py-4 py-lg-5">
+        {error && <div className="alert alert-danger">{error}</div>}
+        <div className="mb-4">
+          <h1 className="h2 fw-bold">Messages from Members</h1>
+          <p className="text-secondary">
+            Read questions, messages, and prayer requests and send replies.
+          </p>
+        </div>
+        {loading ? (
+          <div className="text-center py-5">
+            <div className="spinner-border text-primary" />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="card border-0 shadow-sm rounded-4">
+            <div className="card-body text-center py-5 text-secondary">
+              <i className="bi bi-chat-square-text display-5 d-block mb-3" />
+              No messages yet.
+            </div>
           </div>
         ) : (
           messages
@@ -89,205 +92,59 @@ function AdminMessages({ onBack, onLogout }) {
               <MessageCard
                 key={item.id}
                 item={item}
-                onReply={handleReply}
-                onDelete={handleDelete}
+                onReply={reply}
+                onDelete={remove}
               />
             ))
         )}
-      </div>
+      </main>
     </div>
   );
 }
 
 function MessageCard({ item, onReply, onDelete }) {
-  const [reply, setReply] = useState(item.reply || "");
-
-  const saveReply = () => {
-    onReply(item.id, reply);
-  };
-
+  const [value, setValue] = useState(item.reply || "");
   return (
-    <div style={styles.card}>
-      <div style={styles.cardTop}>
-        <div>
-          <h3 style={styles.name}>{item.name}</h3>
-          <p style={styles.date}>{item.date}</p>
+    <div className="card border-0 shadow-sm rounded-4 mb-3">
+      <div className="card-body p-4">
+        <div className="d-flex justify-content-between gap-3">
+          <div>
+            <h2 className="h5 fw-bold mb-1">{item.name || "Member"}</h2>
+            <small className="text-secondary">{item.date || ""}</small>
+          </div>
+          <button
+            className="btn btn-sm btn-outline-danger"
+            onClick={() => onDelete(item.id)}
+          >
+            <i className="bi bi-trash" />
+          </button>
         </div>
-
-        <button
-          style={styles.deleteButton}
-          onClick={() => onDelete(item.id)}
+        <div
+          className="bg-light border-start border-warning border-4 rounded p-3 my-3"
+          style={{ whiteSpace: "pre-wrap" }}
         >
-          Delete
-        </button>
-      </div>
-
-      <div style={styles.messageBox}>
-        {item.message}
-      </div>
-
-      <label style={styles.label}>Reply to member</label>
-
-      <textarea
-        style={styles.textarea}
-        value={reply}
-        onChange={(e) => setReply(e.target.value)}
-        placeholder="Write your reply..."
-      ></textarea>
-
-      <button style={styles.replyButton} onClick={saveReply}>
-        Save Reply
-      </button>
-
-      {item.reply && (
-        <div style={styles.savedReply}>
-          <strong>Saved Reply:</strong>
-          <p>{item.reply}</p>
+          {item.message}
         </div>
-      )}
+        <label className="form-label fw-semibold">Admin Reply</label>
+        <textarea
+          className="form-control"
+          rows="3"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Write your reply..."
+        />
+        <div className="mt-2 d-flex justify-content-between align-items-center">
+          <small className="text-secondary">
+            {item.reply ? "Reply saved" : "No reply yet"}
+          </small>
+          <button
+            className="btn btn-primary"
+            onClick={() => onReply(item.id, value)}
+          >
+            Save Reply
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background: "#f4f7fb",
-    paddingBottom: "50px",
-  },
-
-  header: {
-    background: "#102a43",
-    padding: "20px 6%",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  backButton: {
-    background: "#ffd166",
-    color: "#102a43",
-    border: "none",
-    borderRadius: "8px",
-    padding: "11px 18px",
-    cursor: "pointer",
-    fontWeight: "700",
-  },
-
-  logoutButton: {
-    background: "#dc3545",
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
-    padding: "11px 18px",
-    cursor: "pointer",
-    fontWeight: "700",
-  },
-
-  container: {
-    width: "90%",
-    maxWidth: "1000px",
-    margin: "40px auto",
-  },
-
-  title: {
-    color: "#102a43",
-    marginBottom: "8px",
-  },
-
-  subtitle: {
-    color: "#52606d",
-    marginBottom: "30px",
-  },
-
-  empty: {
-    background: "#fff",
-    padding: "35px",
-    borderRadius: "12px",
-    textAlign: "center",
-    color: "#52606d",
-  },
-
-  card: {
-    background: "#fff",
-    borderRadius: "14px",
-    padding: "25px",
-    marginBottom: "20px",
-    boxShadow: "0 5px 20px rgba(16, 42, 67, 0.08)",
-  },
-
-  cardTop: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: "15px",
-  },
-
-  name: {
-    color: "#102a43",
-    margin: 0,
-  },
-
-  date: {
-    color: "#829ab1",
-    fontSize: "13px",
-    marginTop: "5px",
-  },
-
-  deleteButton: {
-    background: "#dc3545",
-    color: "#fff",
-    border: "none",
-    borderRadius: "7px",
-    padding: "8px 12px",
-    cursor: "pointer",
-  },
-
-  messageBox: {
-    background: "#f4f7fb",
-    borderLeft: "4px solid #ffd166",
-    padding: "15px",
-    margin: "20px 0",
-    color: "#243b53",
-    whiteSpace: "pre-wrap",
-  },
-
-  label: {
-    display: "block",
-    color: "#102a43",
-    fontWeight: "700",
-    marginBottom: "8px",
-  },
-
-  textarea: {
-    width: "100%",
-    minHeight: "100px",
-    resize: "vertical",
-    border: "1px solid #bcccdc",
-    borderRadius: "8px",
-    padding: "12px",
-    fontFamily: "inherit",
-    boxSizing: "border-box",
-  },
-
-  replyButton: {
-    marginTop: "12px",
-    background: "#17365d",
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
-    padding: "11px 18px",
-    cursor: "pointer",
-    fontWeight: "700",
-  },
-
-  savedReply: {
-    marginTop: "18px",
-    padding: "15px",
-    background: "#e8f5e9",
-    borderRadius: "8px",
-    color: "#245b35",
-  },
-};
-
-export default AdminMessages;

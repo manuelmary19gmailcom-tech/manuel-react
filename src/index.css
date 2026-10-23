@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap");
 
 :root {
@@ -28,7 +27,6 @@ button, input, textarea, select { font-family: inherit; }
   .display-2 { font-size: 2.8rem; }
   .display-3 { font-size: 2.4rem; }
   .display-4 { font-size: 2.1rem; }
-=======
 :root {
   font-family:
     system-ui,
@@ -132,8 +130,7 @@ textarea {
     font-size: 0.95rem;
   }
 }
-<<<<<<< HEAD
-=======
+
 h2 {
   font-size: 24px;
   line-height: 118%;
@@ -160,6 +157,6 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
->>>>>>> 49776bdd37be26ff71f38f5cef997f5b3c554a80
+
 }
->>>>>>> 5358b86567950126d24d4b2790fb5e856e46e46f
+}

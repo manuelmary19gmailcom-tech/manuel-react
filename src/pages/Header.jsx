@@ -13,6 +13,7 @@ export default function Header({ user, onLogout }) {
             height="48"
             className="rounded-circle border border-2 border-warning"
           />
+
           <span>
             Shepherd of My Soul
             <small className="d-block text-warning fw-normal">
@@ -20,14 +21,19 @@ export default function Header({ user, onLogout }) {
             </small>
           </span>
         </a>
+
         <button
           className="navbar-toggler"
+          type="button"
           data-bs-toggle="collapse"
           data-bs-target="#mainNavbar"
+          aria-controls="mainNavbar"
+          aria-expanded="false"
           aria-label="Toggle navigation"
         >
           <span className="navbar-toggler-icon" />
         </button>
+
         <div className="collapse navbar-collapse" id="mainNavbar">
           <ul className="navbar-nav ms-auto align-items-lg-center gap-lg-1">
             {[
@@ -44,11 +50,14 @@ export default function Header({ user, onLogout }) {
                 </a>
               </li>
             ))}
+
             <li className="nav-item ms-lg-2">
               <span className="navbar-text text-white-50 small me-2 d-none d-lg-inline">
                 {user?.name}
               </span>
+
               <button
+                type="button"
                 className="btn btn-outline-warning btn-sm"
                 onClick={onLogout}
               >
@@ -58,17 +67,6 @@ export default function Header({ user, onLogout }) {
             </li>
           </ul>
         </div>
-<<<<<<< HEAD
-=======
-
-        <small className="text-warning">
-          Christian Ministry
-        </small>
-<<<<<<< HEAD
-        <h2>qwerty</h2>
-=======
->>>>>>> 49776bdd37be26ff71f38f5cef997f5b3c554a80
->>>>>>> 5358b86567950126d24d4b2790fb5e856e46e46f
       </div>
     </nav>
   );

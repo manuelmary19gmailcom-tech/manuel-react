@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-const API = "http://localhost:5000/api/announcements";
+const API = "http://localhost:8080/api/announcements";
 export default function Announcement() {
   const [items, setItems] = useState([]);
   useEffect(() => {

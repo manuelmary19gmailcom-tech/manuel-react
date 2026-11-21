@@ -24,7 +24,7 @@ import Signup from "./pages/Signup";
 import Header from "./pages/Header";
 import Body from "./pages/Body";
 import Footer from "./pages/Footer";
-import Chat from "./pages/Chat";
+import ChatPage from "./pages/ChatPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminMessages from "./pages/AdminMessages";
 
@@ -147,9 +147,16 @@ function AppRoutes() {
             <div className="bg-light min-vh-100">
               <Header user={user} onLogout={logout} />
               <Body />
-              <Chat user={user} />
               <Footer />
             </div>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/user/chat"
+        element={
+          <ProtectedRoute user={user} role={role} allowedRole="user">
+            <ChatPage user={user} onBack={() => navigate("/user")} onLogout={logout} />
           </ProtectedRoute>
         }
       />

@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import BibleVerse from "./BibleVerse";
 
 function Body() {
+  const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState([]);
   const [events, setEvents] = useState([]);
 
@@ -610,8 +612,9 @@ function Body() {
               Send us a message for questions, prayer requests, or fellowship.
             </p>
 
-            <a
-              href="#chat"
+            <button
+              type="button"
+              onClick={() => navigate("/user/chat")}
               className="btn rounded-pill px-4 py-2 fw-bold"
               style={{
                 background: gold,
@@ -620,7 +623,7 @@ function Body() {
               }}
             >
               Send a Message
-            </a>
+            </button>
           </div>
         </div>
       </section>

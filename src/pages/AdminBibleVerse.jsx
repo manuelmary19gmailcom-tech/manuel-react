@@ -1,29 +1,35 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+
+const API = "http://localhost:8080/api/bible-verses";
 
 function BibleVerse() {
   const [bibleVerses, setBibleVerses] = useState([]);
 
   useEffect(() => {
     const loadVerses = () => {
-      const savedVerses = JSON.parse(
-        localStorage.getItem("churchBibleVerses") || "[]"
-      );
-
-      setBibleVerses(savedVerses);
+      fetch(API)
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error("Failed to load Bible verses");
+          }
+          return res.json();
+        })
+        .then(setBibleVerses)
+        .catch((error) => {
+          console.error("Bible Verses Error:", error);
+          setBibleVerses([]);
+        });
     };
 
     loadVerses();
 
-    const interval = setInterval(loadVerses, 1000);
+    const interval = setInterval(loadVerses, 3000);
 
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <section
-      id="bible"
-      className="bible-section"
-    >
+    <section id="bible" className="bible-section">
       <div className="container">
         <div className="text-center mb-5">
           <p className="section-label">DAILY INSPIRATION</p>

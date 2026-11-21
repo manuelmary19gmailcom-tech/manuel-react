@@ -33,7 +33,7 @@ export default function AdminDashboard({ user, onMessages, onLogout }) {
       );
       setData({ events, announcements, bibleVerses });
     } catch (err) {
-      setError(`${err.message} Make sure the backend is running on port 5000.`);
+      setError(`${err.message} Make sure the backend is running on port 8080.`);
     } finally {
       setLoading(false);
     }

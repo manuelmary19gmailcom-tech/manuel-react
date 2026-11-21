@@ -156,7 +156,7 @@ export default function Login({ onLogin }) {
       console.log("GOOGLE EMAIL:", result.user.email);
       console.log("GOOGLE NAME:", result.user.displayName);
 
-      onLogin(result.user);
+      console.log("Waiting for Firebase authentication state...");
     } catch (error) {
       console.error("GOOGLE LOGIN ERROR:", error);
 
